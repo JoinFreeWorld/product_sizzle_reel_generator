@@ -35,15 +35,22 @@ const GEMINI_MODEL = "gemini-2.5-flash";
 // File size limit: 10MB (Gemini API limitation)
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
-const VIDEO_ANALYSIS_PROMPT = `Analyze this UI screen recording of a mobile app feature. Provide a detailed, timestamped breakdown of what happens in the video.
+const VIDEO_ANALYSIS_PROMPT = `Analyze this UI screen recording of a mobile app feature. Provide an accurate, timestamped breakdown of what happens in the video.
 
-For each distinct action or screen change, create a segment with:
+IMPORTANT ACCURACY GUIDELINES:
+- Only describe what you ACTUALLY SEE on screen
+- Do NOT infer, assume, or imagine actions that aren't clearly visible
+- If you can't clearly see what's happening, describe it more generally (e.g., "user interacts with screen" instead of "user taps search button")
+- Be conservative - it's better to have fewer, accurate segments than many detailed but inaccurate ones
+- Focus on visible UI changes, screen transitions, and clearly observable interactions
+
+For each distinct action or screen change that you can clearly see, create a segment with:
 - Start time (in seconds)
 - End time (in seconds)
-- Clear description of what's happening
+- Clear, factual description of what's visible on screen
 
 Also provide:
-- An overall summary of what the video demonstrates
+- An overall summary of what the video demonstrates (only what's actually visible)
 - Total video duration
 
 Return your response as a JSON object with this exact structure:
@@ -59,7 +66,7 @@ Return your response as a JSON object with this exact structure:
   ]
 }
 
-Be specific and detailed about UI interactions, screen transitions, and what functionality is being demonstrated.`;
+Remember: Accuracy over detail. Only describe what you actually see.`;
 
 export async function POST(request: NextRequest) {
   try {
