@@ -10,6 +10,7 @@ import type { StoryboardResponse } from "@/types/storyboard";
 import type { StillImageResponse } from "@/types/still-image";
 import type { VideoAnalysisResponse } from "@/types/video-analysis";
 import type { VideoGenerationResponse } from "@/types/video-generation";
+import type { NarrationGenerationResponse } from "@/types/narration";
 
 export default function Home() {
   const [productDescription, setProductDescription] = useState("");
@@ -26,6 +27,8 @@ export default function Home() {
   const [generatedVideos, setGeneratedVideos] = useState<Record<string, VideoGenerationResponse>>({});
   const [generatingVideos, setGeneratingVideos] = useState<Record<string, boolean>>({});
   const [veoModel, setVeoModel] = useState<'veo-2' | 'veo-3'>('veo-3');
+  const [generatedNarration, setGeneratedNarration] = useState<Record<string, NarrationGenerationResponse>>({});
+  const [generatingNarration, setGeneratingNarration] = useState<Record<string, boolean>>({});
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
