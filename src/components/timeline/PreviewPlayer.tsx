@@ -171,8 +171,8 @@ export function PreviewPlayer({
         // Ignore auto-play errors
         setIsPlaying(false);
       });
-    } else if (currentShot.shot.shotType === 'ui') {
-      // UI shot without video - simulate playback with timer for narration
+    } else {
+      // No video for this shot (UI shot or cinematic without video) - simulate playback with timer
       const startTime = Date.now();
       const shotStartTime = currentShot.startTime;
       const shotDuration = currentShot.duration;
