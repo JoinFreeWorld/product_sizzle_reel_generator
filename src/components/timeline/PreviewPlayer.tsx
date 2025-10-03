@@ -37,6 +37,11 @@ export function PreviewPlayer({
 
   const hasVideo = !!videoUrl;
 
+  // Check if ANY shot has a video (for enabling controls)
+  const hasAnyVideo = shotTimeline.some(({ shot }) =>
+    shot.shotType === 'cinematic' && !!generatedVideos[shot.id]
+  );
+
   // Handle seeking
   useEffect(() => {
     if (seekTime !== undefined && videoRef.current) {
@@ -81,25 +86,38 @@ export function PreviewPlayer({
 
   // Auto-play when switching to a new shot with video
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!isPlaying) return;
 
-    if (isPlaying && videoUrl) {
+    if (hasVideo && videoRef.current) {
+      // Has a video to play
       videoRef.current.load();
       videoRef.current.play().catch(() => {
         // Ignore auto-play errors
         setIsPlaying(false);
       });
+    } else if (currentShot.shot.shotType === 'ui') {
+      // UI shot without video - auto-skip to next shot after brief delay
+      const timer = setTimeout(() => {
+        handleVideoEnded();
+      }, 100);
+      return () => clearTimeout(timer);
     }
-  }, [currentShotIndex]);
+  }, [currentShotIndex, isPlaying]);
 
   const handlePlayPause = () => {
-    if (!videoRef.current) return;
     if (isPlaying) {
-      videoRef.current.pause();
+      // Pause
+      setIsPlaying(false);
+      if (videoRef.current) {
+        videoRef.current.pause();
+      }
     } else {
-      videoRef.current.play();
+      // Play
+      setIsPlaying(true);
+      if (hasVideo && videoRef.current) {
+        videoRef.current.play();
+      }
     }
-    setIsPlaying(!isPlaying);
   };
 
   return (
@@ -136,12 +154,12 @@ export function PreviewPlayer({
               videoRef.current.load(); // Force reload the video
             }
           }}
-          disabled={!hasVideo}
+          disabled={!hasAnyVideo}
           variant="outline"
         >
           Restart
         </Button>
-        <Button onClick={handlePlayPause} disabled={!hasVideo}>
+        <Button onClick={handlePlayPause} disabled={!hasAnyVideo}>
           {isPlaying ? 'Pause' : 'Play'}
         </Button>
         <span className="text-sm text-muted-foreground font-mono">
