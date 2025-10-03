@@ -566,16 +566,19 @@ export default function Home() {
           </Card>
         )}
 
-        {storyboard && Object.keys(generatedVideos).length > 0 && (
+        {storyboard && (
           <Card>
             <CardHeader>
               <CardTitle>Preview</CardTitle>
               <CardDescription>
-                Watch your sizzle reel come together
+                {Object.keys(generatedVideos).length > 0
+                  ? "Watch your sizzle reel come together"
+                  : "Generate videos to preview your sizzle reel"}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <PreviewPlayer
+              {Object.keys(generatedVideos).length > 0 && (
+                <PreviewPlayer
                 shots={storyboard.shots}
                 narration={storyboard.narration}
                 generatedVideos={generatedVideos}
@@ -583,6 +586,7 @@ export default function Home() {
                 onTimeUpdate={setPreviewTime}
                 seekTime={seekTime}
               />
+              )}
 
               <div className="flex justify-center">
                 <Timeline
@@ -596,6 +600,7 @@ export default function Home() {
                     setSeekTime(time);
                     setTimeout(() => setSeekTime(undefined), 100);
                   }}
+                  generatedVideos={generatedVideos}
                 />
               </div>
             </CardContent>

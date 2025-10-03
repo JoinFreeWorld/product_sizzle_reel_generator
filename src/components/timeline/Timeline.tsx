@@ -8,9 +8,10 @@ interface TimelineProps {
   totalDuration: number;
   currentTime?: number;
   onSeek?: (time: number) => void;
+  generatedVideos?: Record<string, any>;
 }
 
-export function Timeline({ shots, narration, totalDuration, currentTime = 0, onSeek }: TimelineProps) {
+export function Timeline({ shots, narration, totalDuration, currentTime = 0, onSeek, generatedVideos = {} }: TimelineProps) {
   const timelineWidth = 800; // pixels
   const pixelsPerSecond = timelineWidth / totalDuration;
 
@@ -50,26 +51,36 @@ export function Timeline({ shots, narration, totalDuration, currentTime = 0, onS
         style={{ width: timelineWidth, height: 60 }}
         onClick={handleClick}
       >
-        {shotPositions.map(({ shot, start, duration }, index) => (
-          <div
-            key={shot.id}
-            className="absolute top-0 bottom-0 border-r border-background"
-            style={{
-              left: start * pixelsPerSecond,
-              width: duration * pixelsPerSecond,
-              background: shot.shotType === 'cinematic'
-                ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
-                : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            }}
-          >
-            <div className="p-2 text-xs text-white font-medium truncate">
-              Shot {shot.order}: {shot.title}
+        {shotPositions.map(({ shot, start, duration }, index) => {
+          const hasVideo = shot.shotType === 'cinematic'
+            ? !!generatedVideos[shot.id]
+            : true; // UI shots don't need video generation
+
+          return (
+            <div
+              key={shot.id}
+              className="absolute top-0 bottom-0 border-r border-background"
+              style={{
+                left: start * pixelsPerSecond,
+                width: duration * pixelsPerSecond,
+                background: hasVideo
+                  ? shot.shotType === 'cinematic'
+                    ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+                    : 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                  : 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
+                opacity: hasVideo ? 1 : 0.5,
+              }}
+            >
+              <div className="p-2 text-xs text-white font-medium truncate">
+                Shot {shot.order}: {shot.title}
+                {!hasVideo && ' (not generated)'}
+              </div>
+              <div className="absolute bottom-1 right-1 text-xs text-white/70 font-mono">
+                {duration.toFixed(1)}s
+              </div>
             </div>
-            <div className="absolute bottom-1 right-1 text-xs text-white/70 font-mono">
-              {duration.toFixed(1)}s
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {/* Playhead */}
         <div

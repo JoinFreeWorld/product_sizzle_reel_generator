@@ -40,6 +40,13 @@ export function PreviewPlayer({
   const currentShot = shotTimeline[currentShotIndex];
   const totalDuration = shotTimeline[shotTimeline.length - 1]?.endTime || 0;
 
+  // Get video URL for current shot (only cinematic shots for now)
+  const videoUrl = currentShot.shot.shotType === 'cinematic'
+    ? generatedVideos[currentShot.shot.id]?.videoUrl
+    : undefined;
+
+  const hasVideo = !!videoUrl;
+
   // Handle seeking
   useEffect(() => {
     if (seekTime !== undefined && videoRef.current) {
@@ -87,44 +94,45 @@ export function PreviewPlayer({
     setIsPlaying(!isPlaying);
   };
 
-  // Get video URL for current shot
-  const getCurrentVideoUrl = () => {
-    const shot = currentShot.shot;
-    if (shot.shotType === 'cinematic') {
-      return generatedVideos[shot.id]?.videoUrl;
-    } else if (shot.shotType === 'ui') {
-      // For UI shots, we'd need the original screen recording
-      // For now, return undefined - we'll handle this later
-      return undefined;
-    }
-  };
-
-  const videoUrl = getCurrentVideoUrl();
-  const hasVideo = !!videoUrl;
-
   return (
     <div className="space-y-4">
-      <div className="relative bg-black rounded-lg overflow-hidden max-w-3xl mx-auto">
+      <div className="relative bg-black rounded-lg overflow-hidden max-w-3xl mx-auto aspect-video flex items-center justify-center">
         {hasVideo ? (
           <video
             ref={videoRef}
             src={videoUrl}
-            className="w-full h-auto"
+            className="max-h-full max-w-full object-contain"
             onTimeUpdate={handleTimeUpdate}
             onEnded={() => setIsPlaying(false)}
           />
         ) : (
-          <div className="aspect-video flex items-center justify-center bg-muted">
-            <p className="text-muted-foreground">
+          <div className="text-center space-y-2">
+            <p className="text-muted-foreground font-medium">
               {currentShot.shot.shotType === 'cinematic'
                 ? 'Generate video for this shot to preview'
-                : 'UI shot preview - coming soon'}
+                : 'UI shot - extract clip to preview (coming soon)'}
             </p>
           </div>
         )}
       </div>
 
       <div className="flex items-center justify-center gap-4">
+        <Button
+          onClick={() => {
+            setCurrentShotIndex(0);
+            setCurrentTime(0);
+            setIsPlaying(false);
+            if (videoRef.current) {
+              videoRef.current.currentTime = 0;
+              videoRef.current.pause();
+              videoRef.current.load(); // Force reload the video
+            }
+          }}
+          disabled={!hasVideo}
+          variant="outline"
+        >
+          Restart
+        </Button>
         <Button onClick={handlePlayPause} disabled={!hasVideo}>
           {isPlaying ? 'Pause' : 'Play'}
         </Button>
