@@ -11,6 +11,8 @@ import type { StillImageResponse } from "@/types/still-image";
 import type { VideoAnalysisResponse } from "@/types/video-analysis";
 import type { VideoGenerationResponse } from "@/types/video-generation";
 import type { NarrationGenerationResponse } from "@/types/narration";
+import { Timeline } from "@/components/timeline/Timeline";
+import { PreviewPlayer } from "@/components/timeline/PreviewPlayer";
 
 export default function Home() {
   const [productDescription, setProductDescription] = useState("");
@@ -29,6 +31,8 @@ export default function Home() {
   const [veoModel, setVeoModel] = useState<'veo-2' | 'veo-3'>('veo-3');
   const [generatedNarration, setGeneratedNarration] = useState<Record<string, NarrationGenerationResponse>>({});
   const [generatingNarration, setGeneratingNarration] = useState<Record<string, boolean>>({});
+  const [previewTime, setPreviewTime] = useState(0);
+  const [seekTime, setSeekTime] = useState<number | undefined>(undefined);
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -557,6 +561,42 @@ export default function Home() {
                     )}
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {storyboard && Object.keys(generatedVideos).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Preview</CardTitle>
+              <CardDescription>
+                Watch your sizzle reel come together
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <PreviewPlayer
+                shots={storyboard.shots}
+                narration={storyboard.narration}
+                generatedVideos={generatedVideos}
+                generatedNarration={generatedNarration}
+                onTimeUpdate={setPreviewTime}
+                seekTime={seekTime}
+              />
+
+              <div className="flex justify-center">
+                <Timeline
+                  shots={storyboard.shots}
+                  narration={storyboard.narration}
+                  totalDuration={storyboard.shots.reduce((acc, shot) => {
+                    return acc + (shot.shotType === 'ui' ? shot.endTime - shot.startTime : 8);
+                  }, 0)}
+                  currentTime={previewTime}
+                  onSeek={(time) => {
+                    setSeekTime(time);
+                    setTimeout(() => setSeekTime(undefined), 100);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
