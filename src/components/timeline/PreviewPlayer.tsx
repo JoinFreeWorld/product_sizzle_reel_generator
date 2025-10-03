@@ -23,6 +23,7 @@ export function PreviewPlayer({
   seekTime,
 }: PreviewPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
   const [currentShotIndex, setCurrentShotIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -41,6 +42,68 @@ export function PreviewPlayer({
   const hasAnyVideo = shotTimeline.some(({ shot }) =>
     shot.shotType === 'cinematic' && !!generatedVideos[shot.id]
   );
+
+  // Cleanup audio elements on unmount
+  useEffect(() => {
+    return () => {
+      audioRefs.current.forEach((audio) => {
+        audio.pause();
+        audio.src = '';
+      });
+      audioRefs.current.clear();
+    };
+  }, []);
+
+  // Handle narration audio playback based on currentTime
+  useEffect(() => {
+    if (!narration || narration.length === 0) return;
+
+    narration.forEach((segment) => {
+      const shouldPlay = isPlaying && currentTime >= segment.startTime && currentTime < segment.endTime;
+      const audioUrl = generatedNarration[segment.id]?.audioUrl;
+
+      if (!audioUrl) return;
+
+      // Get or create audio element
+      let audio = audioRefs.current.get(segment.id);
+      if (!audio) {
+        audio = new Audio(audioUrl);
+        audioRefs.current.set(segment.id, audio);
+      }
+
+      if (shouldPlay) {
+        // Calculate position within the narration segment
+        const timeIntoNarration = currentTime - segment.startTime;
+        const currentAudioTime = audio.currentTime;
+
+        // Only seek if we're more than 0.5s off (avoid constant seeking during normal playback)
+        if (Math.abs(currentAudioTime - timeIntoNarration) > 0.5) {
+          audio.currentTime = timeIntoNarration;
+        }
+
+        // Play if not already playing
+        if (audio.paused) {
+          audio.play().catch(() => {
+            // Ignore playback errors
+          });
+        }
+      } else {
+        // Pause if playing but shouldn't be
+        if (!audio.paused) {
+          audio.pause();
+        }
+      }
+    });
+  }, [currentTime, isPlaying, narration, generatedNarration]);
+
+  // Pause all narration when player pauses
+  useEffect(() => {
+    if (!isPlaying) {
+      audioRefs.current.forEach((audio) => {
+        audio.pause();
+      });
+    }
+  }, [isPlaying]);
 
   // Handle seeking
   useEffect(() => {
@@ -155,11 +218,19 @@ export function PreviewPlayer({
             setCurrentTime(0);
             onTimeUpdate?.(0); // Update parent timeline immediately
             setIsPlaying(false);
+
+            // Reset video
             if (videoRef.current) {
               videoRef.current.currentTime = 0;
               videoRef.current.pause();
               videoRef.current.load(); // Force reload the video
             }
+
+            // Reset all audio
+            audioRefs.current.forEach((audio) => {
+              audio.pause();
+              audio.currentTime = 0;
+            });
           }}
           disabled={!hasAnyVideo}
           variant="outline"
