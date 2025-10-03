@@ -147,6 +147,7 @@ export function PreviewPlayer({
           onClick={() => {
             setCurrentShotIndex(0);
             setCurrentTime(0);
+            onTimeUpdate?.(0); // Update parent timeline immediately
             setIsPlaying(false);
             if (videoRef.current) {
               videoRef.current.currentTime = 0;
