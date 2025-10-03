@@ -66,7 +66,8 @@ export function PreviewPlayer({
     if (!narration || narration.length === 0) return;
 
     narration.forEach((segment) => {
-      const shouldPlay = isPlaying && currentTime >= segment.startTime && currentTime < segment.endTime;
+      // Add 0.5s buffer to endTime to prevent cutting off audio that's slightly longer
+      const shouldPlay = isPlaying && currentTime >= segment.startTime && currentTime < segment.endTime + 0.5;
       const audioUrl = generatedNarration[segment.id]?.audioUrl;
 
       if (!audioUrl) return;
