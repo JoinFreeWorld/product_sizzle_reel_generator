@@ -592,9 +592,6 @@ export default function Home() {
                 <Timeline
                   shots={storyboard.shots}
                   narration={storyboard.narration}
-                  totalDuration={storyboard.shots.reduce((acc, shot) => {
-                    return acc + (shot.shotType === 'ui' ? shot.endTime - shot.startTime : 8);
-                  }, 0)}
                   currentTime={previewTime}
                   onSeek={(time) => {
                     setSeekTime(time);

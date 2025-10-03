@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { StoryboardShot, NarrationSegment } from "@/types/storyboard";
+import { useTimeline } from "@/hooks/useTimeline";
 
 interface PreviewPlayerProps {
   shots: StoryboardShot[];
@@ -26,19 +27,8 @@ export function PreviewPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Calculate shot durations and positions
-  const shotTimeline = shots.map((shot, index) => {
-    const duration = shot.shotType === 'ui'
-      ? shot.endTime - shot.startTime
-      : 8;
-    const startTime = shots.slice(0, index).reduce((acc, s) => {
-      return acc + (s.shotType === 'ui' ? s.endTime - s.startTime : 8);
-    }, 0);
-    return { shot, duration, startTime, endTime: startTime + duration };
-  });
-
+  const { items: shotTimeline, totalDuration } = useTimeline(shots);
   const currentShot = shotTimeline[currentShotIndex];
-  const totalDuration = shotTimeline[shotTimeline.length - 1]?.endTime || 0;
 
   // Get video URL for current shot (only cinematic shots for now)
   const videoUrl = currentShot.shot.shotType === 'cinematic'
@@ -74,15 +64,33 @@ export function PreviewPlayer({
 
     // Check if we need to move to next shot
     if (timeInShot >= currentShot.duration) {
-      if (currentShotIndex < shots.length - 1) {
-        setCurrentShotIndex(currentShotIndex + 1);
-        videoRef.current.currentTime = 0;
-      } else {
-        setIsPlaying(false);
-        videoRef.current.pause();
-      }
+      handleVideoEnded();
     }
   };
+
+  // Handle when video ends or shot duration is reached
+  const handleVideoEnded = () => {
+    if (currentShotIndex < shotTimeline.length - 1) {
+      // Move to next shot
+      setCurrentShotIndex(currentShotIndex + 1);
+    } else {
+      // End of all shots
+      setIsPlaying(false);
+    }
+  };
+
+  // Auto-play when switching to a new shot with video
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    if (isPlaying && videoUrl) {
+      videoRef.current.load();
+      videoRef.current.play().catch(() => {
+        // Ignore auto-play errors
+        setIsPlaying(false);
+      });
+    }
+  }, [currentShotIndex]);
 
   const handlePlayPause = () => {
     if (!videoRef.current) return;
@@ -103,7 +111,7 @@ export function PreviewPlayer({
             src={videoUrl}
             className="max-h-full max-w-full object-contain"
             onTimeUpdate={handleTimeUpdate}
-            onEnded={() => setIsPlaying(false)}
+            onEnded={handleVideoEnded}
           />
         ) : (
           <div className="text-center space-y-2">
