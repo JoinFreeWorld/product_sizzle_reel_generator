@@ -84,13 +84,19 @@ export function PreviewPlayer({
     }
   };
 
-  // Auto-play when switching to a new shot with video
+  // Auto-play when switching to a new shot
   useEffect(() => {
     if (!isPlaying) return;
 
     if (hasVideo && videoRef.current) {
-      // Has a video to play
-      videoRef.current.load();
+      // Has a video to play - only load if video source changed
+      const currentSrc = videoRef.current.src;
+      const newSrc = videoUrl;
+
+      if (!currentSrc || currentSrc !== newSrc) {
+        videoRef.current.load();
+      }
+
       videoRef.current.play().catch(() => {
         // Ignore auto-play errors
         setIsPlaying(false);
@@ -102,7 +108,7 @@ export function PreviewPlayer({
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [currentShotIndex, isPlaying]);
+  }, [currentShotIndex]);
 
   const handlePlayPause = () => {
     if (isPlaying) {
