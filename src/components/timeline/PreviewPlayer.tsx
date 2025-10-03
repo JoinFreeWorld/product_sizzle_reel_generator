@@ -43,6 +43,13 @@ export function PreviewPlayer({
     shot.shotType === 'cinematic' && !!generatedVideos[shot.id]
   );
 
+  // Check if we have any narration audio
+  const hasAnyNarration = narration && narration.length > 0 &&
+    narration.some((segment) => !!generatedNarration[segment.id]);
+
+  // Can play if we have video OR narration
+  const canPlay = hasAnyVideo || hasAnyNarration;
+
   // Cleanup audio elements on unmount
   useEffect(() => {
     return () => {
@@ -165,13 +172,26 @@ export function PreviewPlayer({
         setIsPlaying(false);
       });
     } else if (currentShot.shot.shotType === 'ui') {
-      // UI shot without video - auto-skip to next shot after brief delay
-      const timer = setTimeout(() => {
-        handleVideoEnded();
-      }, 100);
-      return () => clearTimeout(timer);
+      // UI shot without video - simulate playback with timer for narration
+      const startTime = Date.now();
+      const shotStartTime = currentShot.startTime;
+      const shotDuration = currentShot.duration;
+
+      const updateTimer = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const newTime = shotStartTime + elapsed;
+        setCurrentTime(newTime);
+        onTimeUpdate?.(newTime);
+
+        if (elapsed >= shotDuration) {
+          clearInterval(updateTimer);
+          handleVideoEnded();
+        }
+      }, 100); // Update every 100ms
+
+      return () => clearInterval(updateTimer);
     }
-  }, [currentShotIndex]);
+  }, [currentShotIndex, isPlaying]);
 
   const handlePlayPause = () => {
     if (isPlaying) {
@@ -232,12 +252,12 @@ export function PreviewPlayer({
               audio.currentTime = 0;
             });
           }}
-          disabled={!hasAnyVideo}
+          disabled={!canPlay}
           variant="outline"
         >
           Restart
         </Button>
-        <Button onClick={handlePlayPause} disabled={!hasAnyVideo}>
+        <Button onClick={handlePlayPause} disabled={!canPlay}>
           {isPlaying ? 'Pause' : 'Play'}
         </Button>
         <span className="text-sm text-muted-foreground font-mono">
