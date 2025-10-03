@@ -66,10 +66,7 @@ export function PreviewPlayer({
     if (!narration || narration.length === 0) return;
 
     narration.forEach((segment) => {
-      // Add 0.5s buffer to endTime to prevent cutting off audio that's slightly longer
-      const shouldPlay = isPlaying && currentTime >= segment.startTime && currentTime < segment.endTime + 0.5;
       const audioUrl = generatedNarration[segment.id]?.audioUrl;
-
       if (!audioUrl) return;
 
       // Get or create audio element
@@ -79,7 +76,10 @@ export function PreviewPlayer({
         audioRefs.current.set(segment.id, audio);
       }
 
-      if (shouldPlay) {
+      const isInTimeRange = currentTime >= segment.startTime;
+      const isPlaying_local = !audio.paused;
+
+      if (isPlaying && isInTimeRange) {
         // Calculate position within the narration segment
         const timeIntoNarration = currentTime - segment.startTime;
         const currentAudioTime = audio.currentTime;
@@ -89,17 +89,15 @@ export function PreviewPlayer({
           audio.currentTime = timeIntoNarration;
         }
 
-        // Play if not already playing
-        if (audio.paused) {
+        // Start playing if we should and aren't already
+        if (!isPlaying_local) {
           audio.play().catch(() => {
             // Ignore playback errors
           });
         }
-      } else {
-        // Pause if playing but shouldn't be
-        if (!audio.paused) {
-          audio.pause();
-        }
+      } else if (isPlaying_local && currentTime < segment.startTime) {
+        // Only pause if we're before the start time (haven't reached this narration yet)
+        audio.pause();
       }
     });
   }, [currentTime, isPlaying, narration, generatedNarration]);
