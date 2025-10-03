@@ -167,6 +167,18 @@ export default function Home() {
           handleExtractClip(shot.id, shot.startTime, shot.endTime);
         }
       }
+
+      // Auto-generate stills for all shots
+      for (const shot of result.shots) {
+        handleGenerateStill(shot.id, shot.visualPrompt);
+      }
+
+      // Auto-generate narration for all segments
+      if (result.narration && result.narration.length > 0) {
+        for (const segment of result.narration) {
+          handleGenerateNarration(segment.id, segment.text);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
