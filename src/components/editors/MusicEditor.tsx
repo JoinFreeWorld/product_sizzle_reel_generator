@@ -22,7 +22,9 @@ export function MusicEditor({
   generatedMusic,
   generatingMusic,
   requestedDurationMs,
+  duckingSettings,
   onGenerateMusic,
+  onDuckingSettingsChange,
 }: MusicEditorProps) {
   const [promptExpanded, setPromptExpanded] = useState(false);
   const [promptEditing, setPromptEditing] = useState(false);
