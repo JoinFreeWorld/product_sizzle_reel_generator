@@ -141,20 +141,42 @@ export function PreviewPlayerV2({
     }
   }, [isPlaying]);
 
-  // Handle music playback (continuous background music)
+  // Create music audio element when music is available
   useEffect(() => {
-    if (!generatedMusic?.audioUrl) return;
+    if (!generatedMusic?.audioUrl) {
+      // Clean up if music is removed
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current.src = '';
+        musicRef.current = null;
+      }
+      return;
+    }
 
-    // Create or get music audio element
-    if (!musicRef.current) {
+    // Create music audio element
+    if (!musicRef.current || musicRef.current.src !== generatedMusic.audioUrl) {
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
       musicRef.current = new Audio(generatedMusic.audioUrl);
       musicRef.current.volume = 0.3; // Lower volume for background music
-      musicRef.current.loop = false; // Don't loop
+      musicRef.current.loop = false;
     }
+
+    // Cleanup only when music changes or component unmounts
+    return () => {
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
+    };
+  }, [generatedMusic?.audioUrl]);
+
+  // Sync music playback to timeline
+  useEffect(() => {
+    if (!musicRef.current) return;
 
     const music = musicRef.current;
 
-    // Sync music to timeline
     if (isPlaying) {
       const drift = Math.abs(music.currentTime - currentTime);
 
@@ -170,16 +192,7 @@ export function PreviewPlayerV2({
     } else {
       music.pause();
     }
-
-    return () => {
-      // Cleanup on unmount
-      if (musicRef.current) {
-        musicRef.current.pause();
-        musicRef.current.src = '';
-        musicRef.current = null;
-      }
-    };
-  }, [generatedMusic, currentTime, isPlaying, totalDuration, SEEK_THRESHOLD_SECONDS]);
+  }, [currentTime, isPlaying, totalDuration, SEEK_THRESHOLD_SECONDS]);
 
   // Handle seeking
   useEffect(() => {
