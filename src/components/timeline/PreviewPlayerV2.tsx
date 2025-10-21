@@ -13,6 +13,7 @@ interface PreviewPlayerV2Props {
   generatedVideos: Record<string, { videoUrl: string }>;
   generatedImages: Record<string, { imageUrl: string }>;
   generatedNarration: Record<string, { audioUrl: string }>;
+  generatedMusic?: { audioUrl: string } | null;
   onTimeUpdate?: (time: number) => void;
   seekTime?: number;
 }
@@ -23,11 +24,13 @@ export function PreviewPlayerV2({
   generatedVideos,
   generatedImages,
   generatedNarration,
+  generatedMusic,
   onTimeUpdate,
   seekTime,
 }: PreviewPlayerV2Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const musicRef = useRef<HTMLAudioElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const animationFrameRef = useRef<number>();
@@ -132,8 +135,51 @@ export function PreviewPlayerV2({
       audioRefs.current.forEach((audio) => {
         audio.pause();
       });
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
     }
   }, [isPlaying]);
+
+  // Handle music playback (continuous background music)
+  useEffect(() => {
+    if (!generatedMusic?.audioUrl) return;
+
+    // Create or get music audio element
+    if (!musicRef.current) {
+      musicRef.current = new Audio(generatedMusic.audioUrl);
+      musicRef.current.volume = 0.3; // Lower volume for background music
+      musicRef.current.loop = false; // Don't loop
+    }
+
+    const music = musicRef.current;
+
+    // Sync music to timeline
+    if (isPlaying) {
+      const drift = Math.abs(music.currentTime - currentTime);
+
+      if (drift > SEEK_THRESHOLD_SECONDS) {
+        music.currentTime = Math.max(0, Math.min(currentTime, music.duration || totalDuration));
+      }
+
+      if (music.paused) {
+        music.play().catch(() => {
+          // Ignore auto-play errors
+        });
+      }
+    } else {
+      music.pause();
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current.src = '';
+        musicRef.current = null;
+      }
+    };
+  }, [generatedMusic, currentTime, isPlaying, totalDuration, SEEK_THRESHOLD_SECONDS]);
 
   // Handle seeking
   useEffect(() => {

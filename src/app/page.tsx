@@ -16,7 +16,7 @@ import type { Timeline as TimelineType } from "@/types/timeline";
 import { TimelineV2 } from "@/components/timeline/TimelineV2";
 import { PreviewPlayerV2 } from "@/components/timeline/PreviewPlayerV2";
 import { BlockEditorPanel } from "@/components/editors/BlockEditorPanel";
-import { storyboardToTimeline, updateNarrationDuration, updateClipPosition, calculateStoryboardDuration } from "@/lib/timelineConverter";
+import { storyboardToTimeline, updateNarrationDuration, updateClipPosition, calculateStoryboardDuration, addMusicToTimeline } from "@/lib/timelineConverter";
 
 export default function Home() {
   const [productDescription, setProductDescription] = useState("");
@@ -242,6 +242,14 @@ export default function Home() {
           handleGenerateNarration(segment.id, segment.text);
         }
       }
+
+      // Auto-generate background music if prompt is available
+      if (result.musicPrompt) {
+        // Delay music generation to ensure timeline is set up first
+        setTimeout(() => {
+          handleGenerateMusic(result.musicPrompt, result);
+        }, 1000);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -423,14 +431,18 @@ export default function Home() {
     }
   };
 
-  const handleGenerateMusic = async () => {
-    if (!storyboard?.musicPrompt) return;
+  const handleGenerateMusic = async (customPrompt?: string, storyboardData?: StoryboardResponse) => {
+    // Use provided values or fall back to state
+    const prompt = customPrompt || storyboard?.musicPrompt;
+    const sb = storyboardData || storyboard;
+
+    if (!prompt || !sb) return;
 
     setGeneratingMusic(true);
     setError(null);
 
     try {
-      const durationSeconds = calculateStoryboardDuration(storyboard);
+      const durationSeconds = calculateStoryboardDuration(sb);
       const durationMs = Math.round(durationSeconds * 1000);
 
       const response = await fetch("/api/music/generate", {
@@ -439,7 +451,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          prompt: storyboard.musicPrompt,
+          prompt,
           durationMs,
         }),
       });
@@ -452,7 +464,7 @@ export default function Home() {
       const result: MusicGenerationResponse = await response.json();
       setGeneratedMusic(result);
 
-      // Load audio to get actual duration
+      // Load audio to get actual duration and add to timeline
       const audio = new Audio(result.audioUrl);
       audio.addEventListener('loadedmetadata', () => {
         const actualDuration = audio.duration;
@@ -462,6 +474,12 @@ export default function Home() {
           ...prev,
           actualDurationSeconds: actualDuration
         } : null);
+
+        // Add music to timeline
+        setTimeline(prevTimeline => {
+          if (!prevTimeline) return prevTimeline;
+          return addMusicToTimeline(prevTimeline, actualDuration);
+        });
       });
       audio.load();
     } catch (err) {
@@ -669,6 +687,7 @@ export default function Home() {
                   generatedVideos={generatedVideos}
                   generatedImages={generatedImages}
                   generatedNarration={generatedNarration}
+                  generatedMusic={generatedMusic}
                   onTimeUpdate={setPreviewTime}
                   seekTime={seekTime}
                 />
@@ -687,6 +706,7 @@ export default function Home() {
                     generatedVideos={generatedVideos}
                     generatedImages={generatedImages}
                     generatedNarration={generatedNarration}
+                    generatedMusic={generatedMusic}
                     selectedClipId={selectedBlockId}
                     onSelectClip={setSelectedBlockId}
                     onClipPositionChange={(clipId, newStartTime) => {
@@ -709,6 +729,8 @@ export default function Home() {
                 extractingClips={extractingClips}
                 generatedNarration={generatedNarration}
                 generatingNarration={generatingNarration}
+                generatedMusic={generatedMusic}
+                generatingMusic={generatingMusic}
                 videoFile={videoFile}
                 baseImage={baseImage}
                 veoModel={veoModel}
@@ -716,6 +738,7 @@ export default function Home() {
                 onGenerateVideo={handleGenerateVideo}
                 onExtractClip={handleExtractClip}
                 onGenerateNarration={handleGenerateNarration}
+                onGenerateMusic={handleGenerateMusic}
                 onVeoModelChange={setVeoModel}
               />
             </CardContent>

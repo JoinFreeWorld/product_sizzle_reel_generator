@@ -204,3 +204,43 @@ export function updateClipDuration(
     totalDuration: calculateTotalDuration(updatedTracks),
   };
 }
+
+/**
+ * Add or update music clip in timeline
+ * Music starts at 0 and spans the entire video duration
+ */
+export function addMusicToTimeline(
+  timeline: Timeline,
+  musicDuration: number,
+  startTime: number = 0
+): Timeline {
+  const updatedTracks = timeline.tracks.map(track => {
+    if (track.type !== 'audio') return track;
+
+    // Remove existing music clip if any
+    const clipsWithoutMusic = track.clips.filter(
+      clip => !(clip.type === 'audio' && clip.audioType === 'music')
+    );
+
+    // Add new music clip
+    const musicClip: AudioClip = {
+      id: 'music-background',
+      type: 'audio' as const,
+      audioType: 'music' as const,
+      sourceId: 'background-music',
+      startTime,
+      duration: musicDuration,
+      volume: 0.3, // Lower volume to allow voiceover to be heard
+    };
+
+    return {
+      ...track,
+      clips: [...clipsWithoutMusic, musicClip],
+    };
+  });
+
+  return {
+    tracks: updatedTracks,
+    totalDuration: calculateTotalDuration(updatedTracks),
+  };
+}
