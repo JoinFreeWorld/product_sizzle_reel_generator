@@ -11,6 +11,7 @@ import type { StillImageResponse } from "@/types/still-image";
 import type { VideoAnalysisResponse } from "@/types/video-analysis";
 import type { VideoGenerationResponse } from "@/types/video-generation";
 import type { NarrationGenerationResponse } from "@/types/narration";
+import type { MusicGenerationResponse } from "@/types/music";
 import type { Timeline as TimelineType } from "@/types/timeline";
 import { TimelineV2 } from "@/components/timeline/TimelineV2";
 import { PreviewPlayerV2 } from "@/components/timeline/PreviewPlayerV2";
@@ -36,6 +37,8 @@ export default function Home() {
   const [veoModel, setVeoModel] = useState<'veo-2' | 'veo-3'>('veo-3');
   const [generatedNarration, setGeneratedNarration] = useState<Record<string, NarrationGenerationResponse>>({});
   const [generatingNarration, setGeneratingNarration] = useState<Record<string, boolean>>({});
+  const [generatedMusic, setGeneratedMusic] = useState<MusicGenerationResponse | null>(null);
+  const [generatingMusic, setGeneratingMusic] = useState(false);
   const [previewTime, setPreviewTime] = useState(0);
   const [seekTime, setSeekTime] = useState<number | undefined>(undefined);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -417,6 +420,54 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "Failed to generate narration");
     } finally {
       setGeneratingNarration(prev => ({ ...prev, [narrationId]: false }));
+    }
+  };
+
+  const handleGenerateMusic = async () => {
+    if (!storyboard?.musicPrompt) return;
+
+    setGeneratingMusic(true);
+    setError(null);
+
+    try {
+      const durationSeconds = calculateStoryboardDuration(storyboard);
+      const durationMs = Math.round(durationSeconds * 1000);
+
+      const response = await fetch("/api/music/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: storyboard.musicPrompt,
+          durationMs,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate music");
+      }
+
+      const result: MusicGenerationResponse = await response.json();
+      setGeneratedMusic(result);
+
+      // Load audio to get actual duration
+      const audio = new Audio(result.audioUrl);
+      audio.addEventListener('loadedmetadata', () => {
+        const actualDuration = audio.duration;
+
+        // Update the music response with actual duration
+        setGeneratedMusic(prev => prev ? {
+          ...prev,
+          actualDurationSeconds: actualDuration
+        } : null);
+      });
+      audio.load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate music");
+    } finally {
+      setGeneratingMusic(false);
     }
   };
 
