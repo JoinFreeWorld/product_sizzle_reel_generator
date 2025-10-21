@@ -107,7 +107,7 @@ export function MusicEditor({
                   setEditedDuration(e.target.value);
                   setPromptModified(true);
                 }}
-                className="w-32 text-sm"
+                className="w-32 text-sm bg-background"
               />
             ) : (
               <p className="text-sm">{editedDuration}s</p>

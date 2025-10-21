@@ -628,49 +628,6 @@ export default function Home() {
 
         {/* Old storyboard card removed - now using focus-mode editing below timeline */}
 
-        {storyboard?.musicPrompt && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Background Music Prompt</CardTitle>
-              <CardDescription>
-                Copy this prompt to test in ElevenLabs or other music generation services
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Music Prompt</label>
-                <Textarea
-                  value={storyboard.musicPrompt}
-                  readOnly
-                  rows={4}
-                  className="font-mono text-sm mt-2"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Duration (seconds)</label>
-                  <Input
-                    value={calculateStoryboardDuration(storyboard).toFixed(1)}
-                    readOnly
-                    className="mt-2"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Duration (ms for API)</label>
-                  <Input
-                    value={(calculateStoryboardDuration(storyboard) * 1000).toFixed(0)}
-                    readOnly
-                    className="mt-2"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Use <code className="bg-muted px-1 py-0.5 rounded">music_length_ms</code> parameter in ElevenLabs API to match the sizzle reel duration
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
         {storyboard && (
           <Card>
             <CardHeader>
