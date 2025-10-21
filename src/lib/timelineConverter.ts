@@ -10,6 +10,24 @@ import type { StoryboardResponse, StoryboardShot, NarrationSegment } from '@/typ
 import type { Timeline, TimelineTrack, VideoClip, AudioClip } from '@/types/timeline';
 
 /**
+ * Calculate total video duration from storyboard shots
+ * Used for music generation length parameter
+ */
+export function calculateStoryboardDuration(storyboard: StoryboardResponse): number {
+  let totalDuration = 0;
+
+  for (const shot of storyboard.shots) {
+    const duration = shot.shotType === 'ui'
+      ? (shot.endTime - shot.startTime)
+      : 8; // cinematic shots are 8 seconds
+
+    totalDuration += duration;
+  }
+
+  return totalDuration;
+}
+
+/**
  * Convert a storyboard to a timeline with clips
  */
 export function storyboardToTimeline(storyboard: StoryboardResponse): Timeline {
