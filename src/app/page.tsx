@@ -431,7 +431,7 @@ export default function Home() {
     }
   };
 
-  const handleGenerateMusic = async (customPrompt?: string, storyboardData?: StoryboardResponse) => {
+  const handleGenerateMusic = async (customPrompt?: string, customDurationMs?: number, storyboardData?: StoryboardResponse) => {
     // Use provided values or fall back to state
     const prompt = customPrompt || storyboard?.musicPrompt;
     const sb = storyboardData || storyboard;
@@ -442,8 +442,10 @@ export default function Home() {
     setError(null);
 
     try {
-      const durationSeconds = calculateStoryboardDuration(sb);
-      const durationMs = Math.round(durationSeconds * 1000);
+      // Use custom duration if provided, otherwise calculate from storyboard
+      const durationMs = customDurationMs !== undefined
+        ? customDurationMs
+        : Math.round(calculateStoryboardDuration(sb) * 1000);
 
       const response = await fetch("/api/music/generate", {
         method: "POST",
