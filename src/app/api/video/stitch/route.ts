@@ -126,10 +126,11 @@ export async function POST(request: NextRequest) {
     const outputPath = path.join(tempDir, `stitched-${Date.now()}.mp4`);
     tempFiles.push(outputPath);
 
-    // Stitch videos using FFmpeg concat demuxer
+    // Stitch videos using FFmpeg with aspect ratio handling
+    // Scale and pad each video to 1920x1080 (16:9) maintaining aspect ratio
     // Remove audio track with -an to create silent video
-    // Re-encode to ensure compatibility between clips
-    const ffmpegCommand = `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -c:v libx264 -preset fast -crf 23 -an -y "${outputPath}"`;
+    // This ensures portrait and landscape videos display correctly without stretching
+    const ffmpegCommand = `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black" -c:v libx264 -preset fast -crf 23 -an -y "${outputPath}"`;
 
     await execAsync(ffmpegCommand);
 
