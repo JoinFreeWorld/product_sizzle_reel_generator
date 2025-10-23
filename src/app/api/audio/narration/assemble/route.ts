@@ -166,12 +166,7 @@ export async function POST(request: NextRequest) {
     // Trim to exact storyboard duration to prevent overrun from last narration clip
     ffmpegCommand += ` -t ${body.totalDuration} -c:a libmp3lame -q:a 2 -y "${outputPath}"`;
 
-    console.log('FFmpeg command:', ffmpegCommand);
-    console.log('Starting FFmpeg execution...');
-    const { stdout, stderr } = await execAsync(ffmpegCommand, { timeout: 30000 }); // 30 second timeout
-    console.log('FFmpeg completed!');
-    console.log('FFmpeg stdout:', stdout);
-    console.log('FFmpeg stderr:', stderr);
+    await execAsync(ffmpegCommand, { timeout: 30000 }); // 30 second timeout
 
     // Read assembled audio
     const { readFile } = await import('fs/promises');
