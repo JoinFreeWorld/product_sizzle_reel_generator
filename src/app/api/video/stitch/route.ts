@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Write each clip to a temp file
+    // Write and normalize each clip to ensure consistent format
     const clipPaths: string[] = [];
     for (let i = 0; i < videoClips.length; i++) {
       const clip = videoClips[i];
@@ -109,11 +109,19 @@ export async function POST(request: NextRequest) {
       const base64Data = videoData.videoUrl.split(',')[1] || videoData.videoUrl;
       const videoBuffer = Buffer.from(base64Data, 'base64');
 
-      // Write to temp file
-      const clipPath = path.join(tempDir, `clip-${i}-${clip.shotId}.mp4`);
-      await writeFile(clipPath, videoBuffer);
-      tempFiles.push(clipPath);
-      clipPaths.push(clipPath);
+      // Write original clip to temp file
+      const originalClipPath = path.join(tempDir, `clip-${i}-${clip.shotId}-original.mp4`);
+      await writeFile(originalClipPath, videoBuffer);
+      tempFiles.push(originalClipPath);
+
+      // Normalize clip: re-encode to consistent format (1920x1080, 30fps, h264)
+      // This prevents freezing issues from mismatched frame rates/codecs
+      const normalizedClipPath = path.join(tempDir, `clip-${i}-${clip.shotId}-normalized.mp4`);
+      const normalizeCommand = `ffmpeg -i "${originalClipPath}" -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black,fps=30" -c:v libx264 -preset fast -crf 23 -an -y "${normalizedClipPath}"`;
+      await execAsync(normalizeCommand);
+
+      tempFiles.push(normalizedClipPath);
+      clipPaths.push(normalizedClipPath);
     }
 
     // Create concat file for FFmpeg
@@ -126,11 +134,9 @@ export async function POST(request: NextRequest) {
     const outputPath = path.join(tempDir, `stitched-${Date.now()}.mp4`);
     tempFiles.push(outputPath);
 
-    // Stitch videos using FFmpeg with aspect ratio handling
-    // Scale and pad each video to 1920x1080 (16:9) maintaining aspect ratio
-    // Remove audio track with -an to create silent video
-    // This ensures portrait and landscape videos display correctly without stretching
-    const ffmpegCommand = `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:black" -c:v libx264 -preset fast -crf 23 -an -y "${outputPath}"`;
+    // Stitch normalized videos using FFmpeg concat
+    // Since clips are already normalized (same resolution, fps, codec), use copy for speed
+    const ffmpegCommand = `ffmpeg -f concat -safe 0 -i "${concatFilePath}" -c copy -y "${outputPath}"`;
 
     await execAsync(ffmpegCommand);
 
