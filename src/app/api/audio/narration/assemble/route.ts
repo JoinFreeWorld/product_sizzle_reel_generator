@@ -163,7 +163,8 @@ export async function POST(request: NextRequest) {
     const outputPath = path.join(tempDir, `narration-track-${Date.now()}.mp3`);
     tempFiles.push(outputPath);
 
-    ffmpegCommand += ` -c:a libmp3lame -q:a 2 -y "${outputPath}"`;
+    // Trim to exact storyboard duration to prevent overrun from last narration clip
+    ffmpegCommand += ` -t ${body.totalDuration} -c:a libmp3lame -q:a 2 -y "${outputPath}"`;
 
     console.log('FFmpeg command:', ffmpegCommand);
     console.log('Starting FFmpeg execution...');
