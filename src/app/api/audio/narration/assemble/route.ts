@@ -151,10 +151,11 @@ export async function POST(request: NextRequest) {
       ffmpegCommand += ` -i "${clipPath}"`;
     }
 
-    // Build filter_complex
+    // Build filter_complex with loudness normalization for speech/narration
+    // Using -23 LUFS (broadcast standard) for conservative, comfortable listening level
     const filterComplex = filterParts.join('; ');
     const mixInputs = ['[0:a]', ...Array.from({ length: narrationClips.length }, (_, i) => `[a${i}]`)].join('');
-    const fullFilter = `${filterComplex}; ${mixInputs}amix=inputs=${narrationClips.length + 1}:dropout_transition=0[out]`;
+    const fullFilter = `${filterComplex}; ${mixInputs}amix=inputs=${narrationClips.length + 1}:dropout_transition=0[mixed]; [mixed]loudnorm=I=-23:LRA=7:TP=-2[out]`;
 
     ffmpegCommand += ` -filter_complex "${fullFilter}" -map "[out]"`;
 
