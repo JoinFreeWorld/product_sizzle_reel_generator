@@ -187,6 +187,11 @@ export default function Home() {
       return;
     }
 
+    if (!videoFile) {
+      setError("Please upload a UI screen recording");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -752,7 +757,7 @@ export default function Home() {
 
               {/* Video Drop Zone */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">UI Screen Recording (Optional)</label>
+                <label className="text-sm font-medium">UI Screen Recording (Required)</label>
                 <div className="relative">
                   <input
                     type="file"
@@ -844,7 +849,7 @@ export default function Home() {
             {/* Generate Button */}
             <Button
               onClick={handleGenerateStoryboard}
-              disabled={loading || !productDescription.trim() || !baseImage}
+              disabled={loading || !productDescription.trim() || !baseImage || !videoFile}
               size="lg"
               className={`w-full text-white ${
                 loading
