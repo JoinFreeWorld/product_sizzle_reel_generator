@@ -692,7 +692,7 @@ export default function Home() {
                 <div>
                   <CardTitle>Project Input</CardTitle>
                   {!isInputSectionCollapsed && (
-                    <CardDescription>Upload assets and define your product demo</CardDescription>
+                    <CardDescription>Upload assets and define your sizzle reel</CardDescription>
                   )}
                 </div>
               </div>
@@ -825,7 +825,7 @@ export default function Home() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Product Description (Required)</label>
               <Textarea
-                placeholder="Revolutionary task management app that uses AI to prioritize your daily workflow. Features include smart scheduling, team collaboration, and automated progress tracking."
+                placeholder="Revolutionary NeuralChain™ platform leveraging hyperscale synergy nodes to disrupt the global productivity paradigm. Features include AI-powered thoughtstreaming, Web7 integration, quantum-entangled collaboration holograms, and blockchain-verified mindfulness metrics."
                 value={productDescription}
                 onChange={(e) => setProductDescription(e.target.value)}
                 className={`resize-none transition-all duration-300 ${
