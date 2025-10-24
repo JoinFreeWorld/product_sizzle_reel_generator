@@ -720,7 +720,8 @@ export default function Home() {
                     type="file"
                     accept="image/*"
                     onChange={handleImageUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    disabled={loading}
+                    className={`absolute inset-0 w-full h-full opacity-0 z-10 ${loading ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                   />
                   <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                     baseImage
@@ -757,7 +758,8 @@ export default function Home() {
                     type="file"
                     accept="video/*"
                     onChange={handleVideoUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    disabled={loading}
+                    className={`absolute inset-0 w-full h-full opacity-0 z-10 ${loading ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                   />
                   <div className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                     videoFile
@@ -772,11 +774,9 @@ export default function Home() {
                       </div>
                     ) : videoFile ? (
                       <div className="space-y-2">
-                        <video
-                          src={videoFile}
-                          controls
-                          className="w-full max-h-32 object-contain rounded-lg mx-auto"
-                        />
+                        <svg className="mx-auto h-12 w-12 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
                         {analyzingVideo ? (
                           <>
                             <div className="flex items-center justify-center gap-2">
@@ -829,7 +829,9 @@ export default function Home() {
                 disabled={loading}
               />
               {loading && (
-                <p className="text-xs text-blue-600 dark:text-blue-400">Generating storyboard...</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">
+                  {analyzingVideo ? 'Analyzing video...' : 'Generating storyboard...'}
+                </p>
               )}
             </div>
 
