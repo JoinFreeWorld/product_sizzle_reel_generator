@@ -676,13 +676,6 @@ export default function Home() {
   return (
     <MainLayout>
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold tracking-tight">AI Sizzle Reel Generator</h1>
-          <p className="text-xl text-muted-foreground">
-            Transform your product descriptions into cinematic storyboards
-          </p>
-        </div>
-
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
