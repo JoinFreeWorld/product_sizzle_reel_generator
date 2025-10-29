@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 
 export function Header() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 shadow-sm">
@@ -146,6 +146,15 @@ export function Header() {
                   <li>Be specific in product descriptions about the feature's value</li>
                   <li>Preview your work frequently using the timeline player</li>
                 </ul>
+              </div>
+
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 p-3 text-sm text-blue-900 dark:text-blue-100">
+                <p className="flex items-start gap-2">
+                  <svg className="h-4 w-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>You can access this help menu anytime by clicking the <strong>?</strong> button in the top right corner.</span>
+                </p>
               </div>
             </div>
           </DialogContent>
