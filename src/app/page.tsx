@@ -722,7 +722,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Character Image Drop Zone */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Character Image (Required)</label>
+                <label className="text-sm font-medium">Character Image *</label>
                 <div className="relative">
                   <input
                     type="file"
@@ -756,11 +756,14 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Note: Photo orientation/aspect ratio may influence cinematic shot composition
+                </p>
               </div>
 
               {/* Video Drop Zone */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">UI Screen Recording (Required)</label>
+                <label className="text-sm font-medium">UI Screen Recording *</label>
                 <div className="relative">
                   <input
                     type="file"
@@ -821,12 +824,15 @@ export default function Home() {
                     )}
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Note: Best results with videos under 60 seconds
+                </p>
               </div>
             </div>
 
             {/* Product Description */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Product Description (Required)</label>
+              <label className="text-sm font-medium">Product Description *</label>
               <Textarea
                 placeholder="Revolutionary NeuralChain™ platform leveraging hyperscale synergy nodes to disrupt the global productivity paradigm. Features include AI-powered thoughtstreaming, Web7 integration, quantum-entangled collaboration holograms, and blockchain-verified mindfulness metrics."
                 value={productDescription}
