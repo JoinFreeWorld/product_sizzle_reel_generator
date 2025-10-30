@@ -944,7 +944,14 @@ export default function Home() {
             {/* Generate Button */}
             <Button
               onClick={handleGenerateStoryboard}
-              disabled={loading || !productDescription.trim() || !baseImage || videoFiles.length === 0}
+              disabled={
+                loading ||
+                !productDescription.trim() ||
+                !baseImage ||
+                videoFiles.length === 0 ||
+                uploadingVideosCount > 0 ||
+                Object.keys(compressingVideos).length > 0
+              }
               size="lg"
               className={`w-full text-white ${
                 loading
