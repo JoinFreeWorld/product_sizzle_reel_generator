@@ -31,6 +31,8 @@ export default function Home() {
   const [uploadingVideosCount, setUploadingVideosCount] = useState(0);
   const [totalVideosToUpload, setTotalVideosToUpload] = useState(0);
   const [previewingVideo, setPreviewingVideo] = useState<UploadedVideo | null>(null);
+  const [deleteWarningOpen, setDeleteWarningOpen] = useState(false);
+  const [videoToDelete, setVideoToDelete] = useState<string | null>(null);
   const [storyboard, setStoryboard] = useState<StoryboardResponse | null>(null);
   const [timeline, setTimeline] = useState<TimelineType | null>(null);
   const [loading, setLoading] = useState(false);
@@ -186,6 +188,18 @@ export default function Home() {
   };
 
   const handleDeleteVideo = (videoId: string) => {
+    // If storyboard exists, show warning dialog
+    if (storyboard) {
+      setVideoToDelete(videoId);
+      setDeleteWarningOpen(true);
+      return;
+    }
+
+    // Otherwise delete immediately
+    confirmDeleteVideo(videoId);
+  };
+
+  const confirmDeleteVideo = (videoId: string) => {
     setVideoFiles(prev => prev.filter(v => v.id !== videoId));
     setVideoAnalyses(prev => {
       const updated = { ...prev };
@@ -208,6 +222,10 @@ export default function Home() {
         setGeneratedMusic(null);
       }
     }
+
+    // Close dialog
+    setDeleteWarningOpen(false);
+    setVideoToDelete(null);
   };
 
   const handleGenerateStoryboard = async () => {
@@ -1128,6 +1146,40 @@ export default function Home() {
                 </p>
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Video Warning Dialog */}
+        <Dialog open={deleteWarningOpen} onOpenChange={setDeleteWarningOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Warning: Delete UI Video</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Deleting a UI video after generating a storyboard may cause issues with the timeline and video clips.
+              </p>
+              <p className="text-sm font-medium">
+                Recommended: Refresh the page and re-upload all assets to start fresh.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteWarningOpen(false);
+                    setVideoToDelete(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => videoToDelete && confirmDeleteVideo(videoToDelete)}
+                >
+                  Delete Anyway
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
