@@ -226,6 +226,14 @@ export default function Home() {
       return;
     }
 
+    // Clear all previous generated content before starting regeneration
+    setStoryboard(null);
+    setTimeline(null);
+    setGeneratedImages({});
+    setGeneratedVideos({});
+    setGeneratedNarration({});
+    setGeneratedMusic(null);
+
     setLoading(true);
 
     try {
@@ -316,10 +324,6 @@ export default function Home() {
       // Convert storyboard to timeline
       const newTimeline = storyboardToTimeline(result);
       setTimeline(newTimeline);
-
-      setGeneratedImages({}); // Clear previous images when new storyboard is generated
-      setGeneratedVideos({}); // Clear previous videos when new storyboard is generated
-      setGeneratedNarration({}); // Clear previous narration when new storyboard is generated
 
       // Collapse input section after successful generation
       setIsInputSectionCollapsed(true);
