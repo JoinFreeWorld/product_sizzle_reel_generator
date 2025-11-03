@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import type { Timeline as TimelineType, VideoClip, AudioClip } from "@/types/timeline";
+import type { Timeline as TimelineType, AudioClip } from "@/types/timeline";
 import type { StoryboardShot } from "@/types/storyboard";
 import { useTimelineClips } from "@/hooks/useTimelineClips";
-import { isVideoClip, isAudioClip, isNarrationClip, isMusicClip } from "@/types/timeline";
+import { isVideoClip, isNarrationClip, isMusicClip } from "@/types/timeline";
 
 interface TimelineProps {
   timeline: TimelineType;
@@ -27,7 +27,6 @@ export function Timeline({
   onSeek,
   generatedVideos = {},
   generatedImages = {},
-  generatedNarration = {},
   selectedClipId,
   onSelectClip,
   onClipPositionChange,
@@ -157,7 +156,7 @@ export function Timeline({
                 Shot {shot.order}: {shot.title}
                 {!hasThumbnail && ' (not generated)'}
               </div>
-              <div className="relative absolute bottom-1 right-1 text-xs text-white/90 font-mono">
+              <div className="relative bottom-1 right-1 text-xs text-white/90 font-mono">
                 {clip.duration.toFixed(1)}s
               </div>
             </div>

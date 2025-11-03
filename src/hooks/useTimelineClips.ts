@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Timeline, TimelineClip, TimelineTrack, PositionedClip } from "@/types/timeline";
+import type { Timeline, TimelineClip, PositionedClip } from "@/types/timeline";
 
 /**
  * Hook for working with timeline clips
@@ -32,7 +32,6 @@ export function useTimelineClips(timeline: Timeline) {
     const audioClips = audioTrack?.clips || [];
 
     return {
-      allClips,              // All clips sorted by time
       videoClips,            // Video track clips
       audioClips,            // Audio track clips
       totalDuration: timeline.totalDuration,
@@ -48,13 +47,6 @@ export function useTimelineClips(timeline: Timeline) {
  */
 export function getClipAtTime(clips: PositionedClip[], time: number): PositionedClip | null {
   return clips.find(c => time >= c.startTime && time < c.endTime) || null;
-}
-
-/**
- * Get all clips playing at a given time (for overlapping audio/video)
- */
-export function getClipsAtTime(clips: PositionedClip[], time: number): PositionedClip[] {
-  return clips.filter(c => time >= c.startTime && time < c.endTime);
 }
 
 /**

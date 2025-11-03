@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { Timeline as TimelineType, VideoClip, AudioClip } from "@/types/timeline";
 import type { StoryboardShot } from "@/types/storyboard";
 import type { MusicDuckingSettings } from "@/types/music";
-import { useTimelineClips, getClipsAtTime } from "@/hooks/useTimelineClips";
+import { useTimelineClips } from "@/hooks/useTimelineClips";
 import { isVideoClip, isAudioClip, isNarrationClip } from "@/types/timeline";
 
 interface PreviewPlayerProps {
@@ -38,7 +38,7 @@ export function PreviewPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
 
-  const { allClips, videoClips, audioClips, totalDuration } = useTimelineClips(timeline);
+  const { videoClips, audioClips, totalDuration } = useTimelineClips(timeline);
 
   const SEEK_THRESHOLD_SECONDS = 0.5;
 
