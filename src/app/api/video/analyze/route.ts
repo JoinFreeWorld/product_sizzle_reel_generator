@@ -152,9 +152,14 @@ export async function POST(request: NextRequest) {
         cleanedText = cleanedText.replace(/^```\s*/, "").replace(/\s*```$/, "");
       }
 
+      // Fix malformed timestamps like "2.07.5" -> "2.075"
+      // Gemini sometimes returns invalid decimal numbers with multiple periods
+      cleanedText = cleanedText.replace(/(\d+\.\d+)\.(\d+)/g, '$1$2');
+
       analysis = JSON.parse(cleanedText);
-    } catch {
+    } catch (parseError) {
       console.error("Failed to parse Gemini response:", responseText);
+      console.error("Parse error:", parseError);
       return NextResponse.json(
         { error: "Failed to analyze video" },
         { status: 500 }
