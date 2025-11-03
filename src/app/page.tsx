@@ -12,8 +12,8 @@ import type { VideoGenerationResponse } from "@/types/video-generation";
 import type { NarrationGenerationResponse } from "@/types/narration";
 import type { MusicGenerationResponse, MusicDuckingSettings } from "@/types/music";
 import type { Timeline as TimelineType } from "@/types/timeline";
-import { TimelineV2 } from "@/components/timeline/TimelineV2";
-import { PreviewPlayerV2 } from "@/components/timeline/PreviewPlayerV2";
+import { Timeline } from "@/components/timeline/Timeline";
+import { PreviewPlayer } from "@/components/timeline/PreviewPlayer";
 import { BlockEditorPanel } from "@/components/editors/BlockEditorPanel";
 import { UploadSection } from "@/components/upload/UploadSection";
 import { ExportSection } from "@/components/export/ExportSection";
@@ -571,7 +571,7 @@ export default function Home() {
             </CardHeader>
             <CardContent className="space-y-6">
               {timeline && (Object.keys(generatedVideos).length > 0 || Object.keys(generatedImages).length > 0) && (
-                <PreviewPlayerV2
+                <PreviewPlayer
                   timeline={timeline}
                   shots={shotsLookup}
                   generatedVideos={generatedVideos}
@@ -586,7 +586,7 @@ export default function Home() {
 
               {timeline && (
                 <div className="flex justify-center">
-                  <TimelineV2
+                  <Timeline
                     timeline={timeline}
                     shots={shotsLookup}
                     currentTime={previewTime}

@@ -1,55 +1,46 @@
 "use client";
 
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { StoryboardShot, NarrationSegment } from "@/types/storyboard";
-import { useTimeline } from "@/hooks/useTimeline";
+import type { Timeline as TimelineType, VideoClip, AudioClip } from "@/types/timeline";
+import type { StoryboardShot } from "@/types/storyboard";
+import type { MusicDuckingSettings } from "@/types/music";
+import { useTimelineClips, getClipsAtTime } from "@/hooks/useTimelineClips";
+import { isVideoClip, isAudioClip, isNarrationClip } from "@/types/timeline";
 
 interface PreviewPlayerProps {
-  shots: StoryboardShot[];
-  narration?: NarrationSegment[];
+  timeline: TimelineType;
+  shots: Record<string, StoryboardShot>;
   generatedVideos: Record<string, { videoUrl: string }>;
+  generatedImages: Record<string, { imageUrl: string }>;
   generatedNarration: Record<string, { audioUrl: string }>;
+  generatedMusic?: { audioUrl: string } | null;
+  musicDuckingSettings?: MusicDuckingSettings;
   onTimeUpdate?: (time: number) => void;
   seekTime?: number;
 }
 
 export function PreviewPlayer({
+  timeline,
   shots,
-  narration,
   generatedVideos,
+  generatedImages,
   generatedNarration,
+  generatedMusic,
+  musicDuckingSettings,
   onTimeUpdate,
   seekTime,
 }: PreviewPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const [currentShotIndex, setCurrentShotIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
-  const { items: shotTimeline, totalDuration } = useTimeline(shots);
-  const currentShot = shotTimeline[currentShotIndex];
+  const { allClips, videoClips, audioClips, totalDuration } = useTimelineClips(timeline);
 
-  // Constants
-  const SEEK_THRESHOLD_SECONDS = 0.5; // Tolerance for audio sync drift before seeking
-
-  // Get video URL for current shot (cinematic or extracted UI clips)
-  const videoUrl = generatedVideos[currentShot.shot.id]?.videoUrl;
-
-  const hasVideo = !!videoUrl;
-
-  // Check if ANY shot has a video (for enabling controls)
-  const hasAnyVideo = shotTimeline.some(({ shot }) =>
-    !!generatedVideos[shot.id]
-  );
-
-  // Check if we have any narration audio
-  const hasAnyNarration = narration && narration.length > 0 &&
-    narration.some((segment) => !!generatedNarration[segment.id]);
-
-  // Can play if we have video OR narration
-  const canPlay = hasAnyVideo || hasAnyNarration;
+  const SEEK_THRESHOLD_SECONDS = 0.5;
 
   // Cleanup audio elements on unmount
   useEffect(() => {
@@ -59,193 +50,320 @@ export function PreviewPlayer({
         audio.src = '';
       });
       audioRefs.current.clear();
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, []);
 
-  // Helper: Get or create audio element for a narration segment
-  const getOrCreateAudio = (segment: NarrationSegment): HTMLAudioElement | null => {
-    const audioUrl = generatedNarration[segment.id]?.audioUrl;
+  // Clear audio cache when generatedNarration changes (e.g., new storyboard)
+  useEffect(() => {
+    audioRefs.current.forEach((audio) => {
+      audio.pause();
+      audio.src = '';
+    });
+    audioRefs.current.clear();
+  }, [generatedNarration]);
+
+  // Find current video clip
+  const currentVideoClip = videoClips.find(
+    clip => isVideoClip(clip) && currentTime >= clip.startTime && currentTime < (clip.startTime + clip.duration)
+  ) as VideoClip | undefined;
+
+  const currentShot = currentVideoClip ? shots[currentVideoClip.shotId] : null;
+  const videoUrl = currentShot ? generatedVideos[currentShot.id]?.videoUrl : null;
+  const stillUrl = currentShot?.shotType === 'cinematic'
+    ? generatedImages[currentShot.id]?.imageUrl
+    : null;
+
+  // Debug logging
+  if (currentShot) {
+    console.log('Current shot:', currentShot.id, 'Type:', currentShot.shotType, 'Has video:', !!videoUrl);
+  }
+
+  // Helper: Get or create audio element
+  const getOrCreateAudio = useCallback((clip: AudioClip): HTMLAudioElement | null => {
+    const audioUrl = generatedNarration[clip.sourceId]?.audioUrl;
     if (!audioUrl) return null;
 
-    let audio = audioRefs.current.get(segment.id);
+    let audio = audioRefs.current.get(clip.id);
     if (!audio) {
       audio = new Audio(audioUrl);
-      audioRefs.current.set(segment.id, audio);
+      audioRefs.current.set(clip.id, audio);
     }
     return audio;
-  };
+  }, [generatedNarration]);
 
-  // Helper: Sync audio element to current timeline position
-  const syncAudioToTimeline = (
-    audio: HTMLAudioElement,
-    segment: NarrationSegment
-  ) => {
-    const timeIntoSegment = currentTime - segment.startTime;
-    const isInTimeRange = currentTime >= segment.startTime && currentTime < segment.endTime;
+  // Helper: Sync audio to timeline
+  const syncAudioToTimeline = useCallback((audio: HTMLAudioElement, clip: AudioClip) => {
+    const timeIntoClip = currentTime - clip.startTime;
+    const isInTimeRange = currentTime >= clip.startTime && currentTime < (clip.startTime + clip.duration);
     const audioIsPlaying = !audio.paused;
 
-    // Check if we've moved past the actual audio duration
-    // This prevents trying to play beyond what exists in the audio file
     const audioDuration = audio.duration;
-    const hasAudioFinished = !isNaN(audioDuration) && timeIntoSegment >= audioDuration;
+    const hasAudioFinished = !isNaN(audioDuration) && timeIntoClip >= audioDuration;
 
-    // Should this audio be playing right now?
     if (isPlaying && isInTimeRange && !hasAudioFinished) {
-      const drift = Math.abs(audio.currentTime - timeIntoSegment);
+      const drift = Math.abs(audio.currentTime - timeIntoClip);
 
-      // Sync audio position if it's drifted too far
       if (drift > SEEK_THRESHOLD_SECONDS) {
-        audio.currentTime = timeIntoSegment;
+        audio.currentTime = timeIntoClip;
       }
 
-      // Start playing if not already
       if (!audioIsPlaying) {
         audio.play().catch(() => {
           // Ignore auto-play errors
         });
       }
-    }
-    // Should this audio be paused right now?
-    else if (audioIsPlaying) {
+    } else if (audioIsPlaying) {
       audio.pause();
     }
-  };
+  }, [currentTime, isPlaying, SEEK_THRESHOLD_SECONDS]);
 
-  // Handle narration audio playback based on currentTime
+  // Handle audio playback
   useEffect(() => {
-    if (!narration || narration.length === 0) return;
+    audioClips.forEach((clip) => {
+      if (!isAudioClip(clip)) return;
 
-    narration.forEach((segment) => {
-      const audio = getOrCreateAudio(segment);
+      const audio = getOrCreateAudio(clip);
       if (!audio) return;
 
-      syncAudioToTimeline(audio, segment);
+      syncAudioToTimeline(audio, clip);
     });
-  }, [currentTime, isPlaying, narration, generatedNarration]);
+  }, [audioClips, currentTime, isPlaying, getOrCreateAudio, syncAudioToTimeline]);
 
-  // Pause all narration when player pauses
+  // Pause all audio when not playing
   useEffect(() => {
     if (!isPlaying) {
       audioRefs.current.forEach((audio) => {
         audio.pause();
       });
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
     }
   }, [isPlaying]);
 
-  // Handle seeking
+  // Create music audio element when music is available
   useEffect(() => {
-    if (seekTime !== undefined && videoRef.current) {
-      // Find which shot this time belongs to
-      const shotIndex = shotTimeline.findIndex(
-        (st) => seekTime >= st.startTime && seekTime < st.endTime
-      );
-      if (shotIndex !== -1 && shotIndex !== currentShotIndex) {
-        setCurrentShotIndex(shotIndex);
-        setCurrentTime(seekTime);
-        // Seek within the video
-        const timeInShot = seekTime - shotTimeline[shotIndex].startTime;
-        videoRef.current.currentTime = timeInShot;
+    if (!generatedMusic?.audioUrl) {
+      // Clean up if music is removed
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current.src = '';
+        musicRef.current = null;
+      }
+      return;
+    }
+
+    // Create music audio element
+    if (!musicRef.current || musicRef.current.src !== generatedMusic.audioUrl) {
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
+      musicRef.current = new Audio(generatedMusic.audioUrl);
+      musicRef.current.volume = musicDuckingSettings?.normalVolume ?? 0.3;
+      musicRef.current.loop = false;
+    }
+
+    // Cleanup only when music changes or component unmounts
+    return () => {
+      if (musicRef.current) {
+        musicRef.current.pause();
+      }
+    };
+  }, [generatedMusic?.audioUrl, musicDuckingSettings?.normalVolume]);
+
+  // Sync music playback to timeline
+  useEffect(() => {
+    if (!musicRef.current) return;
+
+    const music = musicRef.current;
+
+    if (isPlaying) {
+      const drift = Math.abs(music.currentTime - currentTime);
+
+      if (drift > SEEK_THRESHOLD_SECONDS) {
+        music.currentTime = Math.max(0, Math.min(currentTime, music.duration || totalDuration));
+      }
+
+      if (music.paused) {
+        music.play().catch(() => {
+          // Ignore auto-play errors
+        });
+      }
+    } else {
+      music.pause();
+    }
+  }, [currentTime, isPlaying, totalDuration, SEEK_THRESHOLD_SECONDS]);
+
+  // Audio ducking: smoothly adjust music volume based on narration
+  useEffect(() => {
+    if (!musicRef.current || !musicDuckingSettings?.enabled) {
+      return;
+    }
+
+    const music = musicRef.current;
+    const narrationClips = audioClips.filter(isNarrationClip);
+
+    // Find if there's active or upcoming narration
+    const LOOKAHEAD = 0.2; // Look ahead 0.2s to start ducking early
+    const activeNarration = narrationClips.find(clip =>
+      currentTime >= (clip.startTime - LOOKAHEAD) &&
+      currentTime < clip.startTime + clip.duration
+    );
+
+    const targetVolume = activeNarration
+      ? musicDuckingSettings.duckedVolume
+      : musicDuckingSettings.normalVolume;
+
+    // Smooth volume transition
+    const currentVolume = music.volume;
+    const volumeDiff = targetVolume - currentVolume;
+
+    if (Math.abs(volumeDiff) > 0.01) {
+      // Calculate step size based on fade duration
+      // We want to complete the fade in fadeDuration seconds
+      const fadeStepSize = volumeDiff / (musicDuckingSettings.fadeDuration * 60); // Assumes 60fps
+      const newVolume = currentVolume + fadeStepSize;
+
+      // Clamp to target to avoid overshooting
+      if (volumeDiff > 0) {
+        music.volume = Math.min(newVolume, targetVolume);
+      } else {
+        music.volume = Math.max(newVolume, targetVolume);
       }
     }
-  }, [seekTime]);
+  }, [currentTime, audioClips, musicDuckingSettings]);
 
-  // Handle video time updates
-  const handleTimeUpdate = () => {
-    if (!videoRef.current) return;
-    const timeInShot = videoRef.current.currentTime;
-    const absoluteTime = currentShot.startTime + timeInShot;
-    setCurrentTime(absoluteTime);
-    onTimeUpdate?.(absoluteTime);
-
-    // Check if we need to move to next shot
-    if (timeInShot >= currentShot.duration) {
-      handleVideoEnded();
+  // Handle seeking
+  useEffect(() => {
+    if (seekTime !== undefined) {
+      setCurrentTime(seekTime);
+      if (videoRef.current && currentVideoClip) {
+        const timeIntoClip = seekTime - currentVideoClip.startTime;
+        videoRef.current.currentTime = Math.max(0, timeIntoClip);
+      }
     }
-  };
+  }, [seekTime, currentVideoClip]);
 
-  // Handle when video ends or shot duration is reached
-  const handleVideoEnded = () => {
-    if (currentShotIndex < shotTimeline.length - 1) {
-      // Move to next shot
-      setCurrentShotIndex(currentShotIndex + 1);
-    } else {
-      // End of all shots
-      setIsPlaying(false);
-    }
-  };
-
-  // Auto-play when switching to a new shot
+  // Playback loop
   useEffect(() => {
     if (!isPlaying) return;
 
-    if (hasVideo && videoRef.current) {
-      // Has a video to play - only load if video source changed
-      const currentSrc = videoRef.current.src;
-      const newSrc = videoUrl;
+    let lastTimestamp = performance.now();
 
-      if (!currentSrc || currentSrc !== newSrc) {
-        videoRef.current.load();
+    const tick = (timestamp: number) => {
+      const deltaTime = (timestamp - lastTimestamp) / 1000; // Convert to seconds
+      lastTimestamp = timestamp;
+
+      setCurrentTime(prev => {
+        const newTime = prev + deltaTime;
+
+        if (newTime >= totalDuration) {
+          setIsPlaying(false);
+          return totalDuration;
+        }
+
+        return newTime;
+      });
+
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isPlaying, totalDuration]);
+
+  // Notify parent of time updates
+  useEffect(() => {
+    onTimeUpdate?.(currentTime);
+  }, [currentTime, onTimeUpdate]);
+
+  // Sync video playback to current video clip
+  useEffect(() => {
+    if (!videoRef.current || !currentVideoClip || !videoUrl) return;
+
+    const timeIntoClip = currentTime - currentVideoClip.startTime;
+    const videoIsPlaying = !videoRef.current.paused;
+
+    // For UI clips (extracted videos), account for trimStart offset
+    // UI clips are extracted from the source video, so they start at 0 in the extracted file
+    // but we need to map timeline time to the extracted clip's internal time
+    const videoTime = currentShot?.shotType === 'ui' && currentVideoClip.trimStart !== undefined
+      ? timeIntoClip  // For extracted clips, timeIntoClip is already correct (relative to clip start)
+      : timeIntoClip;
+
+    if (isPlaying) {
+      // Only seek if drift is significant (avoid constant seeking on every frame)
+      const drift = Math.abs(videoRef.current.currentTime - videoTime);
+
+      if (drift > SEEK_THRESHOLD_SECONDS) {
+        console.log('Seeking video to:', videoTime, 'Current:', videoRef.current.currentTime, 'Drift:', drift);
+        videoRef.current.currentTime = videoTime;
       }
 
-      videoRef.current.play().catch(() => {
-        // Ignore auto-play errors
-        setIsPlaying(false);
-      });
+      if (!videoIsPlaying) {
+        videoRef.current.play().catch(() => {
+          // Ignore auto-play errors
+        });
+      }
     } else {
-      // No video for this shot (UI shot or cinematic without video) - simulate playback with timer
-      const startTime = Date.now();
-      const shotStartTime = currentShot.startTime;
-      const shotDuration = currentShot.duration;
-
-      const updateTimer = setInterval(() => {
-        const elapsed = (Date.now() - startTime) / 1000;
-        const newTime = shotStartTime + elapsed;
-        setCurrentTime(newTime);
-        onTimeUpdate?.(newTime);
-
-        if (elapsed >= shotDuration) {
-          clearInterval(updateTimer);
-          handleVideoEnded();
-        }
-      }, 100); // Update every 100ms
-
-      return () => clearInterval(updateTimer);
-    }
-  }, [currentShotIndex, isPlaying]);
-
-  const handlePlayPause = () => {
-    if (isPlaying) {
-      // Pause
-      setIsPlaying(false);
-      if (videoRef.current) {
+      if (videoIsPlaying) {
         videoRef.current.pause();
       }
-    } else {
-      // Play
-      setIsPlaying(true);
-      if (hasVideo && videoRef.current) {
-        videoRef.current.play();
-      }
     }
+  }, [currentVideoClip, currentTime, isPlaying, videoUrl, currentShot, SEEK_THRESHOLD_SECONDS]);
+
+  const handlePlayPause = () => {
+    setIsPlaying(!isPlaying);
   };
+
+  const handleRestart = () => {
+    setCurrentTime(0);
+    setIsPlaying(false);
+    onTimeUpdate?.(0);
+
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.pause();
+    }
+
+    audioRefs.current.forEach((audio) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
+  };
+
+  const canPlay = videoClips.length > 0 || audioClips.length > 0;
 
   return (
     <div className="space-y-4">
       <div className="relative bg-black rounded-lg overflow-hidden max-w-3xl mx-auto aspect-video flex items-center justify-center">
-        {hasVideo ? (
+        {videoUrl ? (
           <video
             ref={videoRef}
             src={videoUrl}
             className="max-h-full max-w-full object-contain"
-            onTimeUpdate={handleTimeUpdate}
-            onEnded={handleVideoEnded}
+            muted
+          />
+        ) : stillUrl ? (
+          <img
+            src={stillUrl}
+            alt={`Shot ${currentShot?.order}: ${currentShot?.title}`}
+            className="max-h-full max-w-full object-contain"
           />
         ) : (
           <div className="text-center space-y-2">
             <p className="text-muted-foreground font-medium">
-              {currentShot.shot.shotType === 'cinematic'
-                ? 'Generate video for this shot to preview'
-                : 'UI shot - extract clip to preview (coming soon)'}
+              {currentShot?.shotType === 'cinematic'
+                ? 'Generate still or video for this shot to preview'
+                : 'No video clip at this time'}
             </p>
           </div>
         )}
@@ -253,25 +371,7 @@ export function PreviewPlayer({
 
       <div className="flex items-center justify-center gap-4">
         <Button
-          onClick={() => {
-            setCurrentShotIndex(0);
-            setCurrentTime(0);
-            onTimeUpdate?.(0); // Update parent timeline immediately
-            setIsPlaying(false);
-
-            // Reset video
-            if (videoRef.current) {
-              videoRef.current.currentTime = 0;
-              videoRef.current.pause();
-              videoRef.current.load(); // Force reload the video
-            }
-
-            // Reset all audio
-            audioRefs.current.forEach((audio) => {
-              audio.pause();
-              audio.currentTime = 0;
-            });
-          }}
+          onClick={handleRestart}
           disabled={!canPlay}
           variant="outline"
         >
@@ -285,9 +385,11 @@ export function PreviewPlayer({
         </span>
       </div>
 
-      <div className="text-center text-sm text-muted-foreground">
-        Current: Shot {currentShot.shot.order} - {currentShot.shot.title}
-      </div>
+      {currentShot && (
+        <div className="text-center text-sm text-muted-foreground">
+          Current: Shot {currentShot.order} - {currentShot.title}
+        </div>
+      )}
     </div>
   );
 }

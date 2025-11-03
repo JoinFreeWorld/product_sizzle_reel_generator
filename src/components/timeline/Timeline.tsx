@@ -1,21 +1,46 @@
 "use client";
 
-import { StoryboardShot, NarrationSegment } from "@/types/storyboard";
-import { useTimeline } from "@/hooks/useTimeline";
+import { useState, useRef } from "react";
+import type { Timeline as TimelineType, VideoClip, AudioClip } from "@/types/timeline";
+import type { StoryboardShot } from "@/types/storyboard";
+import { useTimelineClips } from "@/hooks/useTimelineClips";
+import { isVideoClip, isAudioClip, isNarrationClip, isMusicClip } from "@/types/timeline";
 
 interface TimelineProps {
-  shots: StoryboardShot[];
-  narration?: NarrationSegment[];
+  timeline: TimelineType;
+  shots: Record<string, StoryboardShot>; // Lookup by shot ID
   currentTime?: number;
   onSeek?: (time: number) => void;
   generatedVideos?: Record<string, { videoUrl: string }>;
   generatedImages?: Record<string, { imageUrl: string }>;
-  selectedBlockId?: string | null;
-  onSelectBlock?: (blockId: string) => void;
+  generatedNarration?: Record<string, { audioUrl: string }>;
+  generatedMusic?: { audioUrl: string } | null;
+  selectedClipId?: string | null;
+  onSelectClip?: (clipId: string) => void;
+  onClipPositionChange?: (clipId: string, newStartTime: number) => void;
 }
 
-export function Timeline({ shots, narration, currentTime = 0, onSeek, generatedVideos = {}, generatedImages = {}, selectedBlockId, onSelectBlock }: TimelineProps) {
-  const { items: shotPositions, totalDuration } = useTimeline(shots);
+export function Timeline({
+  timeline,
+  shots,
+  currentTime = 0,
+  onSeek,
+  generatedVideos = {},
+  generatedImages = {},
+  generatedNarration = {},
+  selectedClipId,
+  onSelectClip,
+  onClipPositionChange,
+}: TimelineProps) {
+  const { videoClips, audioClips, totalDuration } = useTimelineClips(timeline);
+
+  // Separate narration and music clips
+  const narrationClips = audioClips.filter(isNarrationClip);
+  const musicClips = audioClips.filter(isMusicClip);
+  const [draggingClipId, setDraggingClipId] = useState<string | null>(null);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [dragStartTime, setDragStartTime] = useState(0);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!onSeek) return;
@@ -24,6 +49,29 @@ export function Timeline({ shots, narration, currentTime = 0, onSeek, generatedV
     const width = rect.width;
     const time = (x / width) * totalDuration;
     onSeek(Math.max(0, Math.min(time, totalDuration)));
+  };
+
+  const handleClipDragStart = (e: React.MouseEvent<HTMLDivElement>, clip: AudioClip) => {
+    if (!onClipPositionChange) return;
+    e.stopPropagation();
+    setDraggingClipId(clip.id);
+    setDragStartX(e.clientX);
+    setDragStartTime(clip.startTime);
+  };
+
+  const handleClipDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!draggingClipId || !timelineRef.current || !onClipPositionChange) return;
+
+    const rect = timelineRef.current.getBoundingClientRect();
+    const deltaX = e.clientX - dragStartX;
+    const deltaTime = (deltaX / rect.width) * totalDuration;
+    const newStartTime = Math.max(0, Math.min(dragStartTime + deltaTime, totalDuration));
+
+    onClipPositionChange(draggingClipId, newStartTime);
+  };
+
+  const handleClipDragEnd = () => {
+    setDraggingClipId(null);
   };
 
   return (
@@ -37,25 +85,29 @@ export function Timeline({ shots, narration, currentTime = 0, onSeek, generatedV
         </div>
       </div>
 
-      {/* Shot blocks */}
+      {/* Video track */}
       <div
         className="relative bg-muted rounded cursor-pointer w-full h-[60px]"
         onClick={handleClick}
       >
-        {shotPositions.map(({ shot, startTime, duration }) => {
-          // For cinematic shots: use still image; for UI shots: use video
+        {videoClips.map((clip) => {
+          if (!isVideoClip(clip)) return null;
+
+          const shot = shots[clip.shotId];
+          if (!shot) return null;
+
           const thumbnailUrl = shot.shotType === 'cinematic'
             ? generatedImages[shot.id]?.imageUrl
             : generatedVideos[shot.id]?.videoUrl;
           const hasThumbnail = !!thumbnailUrl;
-          const isSelected = selectedBlockId === shot.id;
+          const isSelected = selectedClipId === shot.id;
 
-          const leftPercent = (startTime / totalDuration) * 100;
-          const widthPercent = (duration / totalDuration) * 100;
+          const leftPercent = (clip.startTime / totalDuration) * 100;
+          const widthPercent = (clip.duration / totalDuration) * 100;
 
           return (
             <div
-              key={shot.id}
+              key={clip.id}
               className={`absolute top-0 bottom-0 border-r border-background overflow-hidden cursor-pointer ${isSelected ? 'ring-2 ring-green-500 z-20' : 'z-10'}`}
               style={{
                 left: `${leftPercent}%`,
@@ -63,7 +115,10 @@ export function Timeline({ shots, narration, currentTime = 0, onSeek, generatedV
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                onSelectBlock?.(shot.id);
+                // Pass the shot ID (not clip ID) for editor compatibility
+                onSelectClip?.(shot.id);
+                // Seek to shot's start time to show it in preview
+                onSeek?.(clip.startTime);
               }}
             >
               {/* Thumbnail background */}
@@ -103,7 +158,7 @@ export function Timeline({ shots, narration, currentTime = 0, onSeek, generatedV
                 {!hasThumbnail && ' (not generated)'}
               </div>
               <div className="relative absolute bottom-1 right-1 text-xs text-white/90 font-mono">
-                {duration.toFixed(1)}s
+                {clip.duration.toFixed(1)}s
               </div>
             </div>
           );
@@ -118,33 +173,86 @@ export function Timeline({ shots, narration, currentTime = 0, onSeek, generatedV
         </div>
       </div>
 
-      {/* Narration segments */}
-      {narration && narration.length > 0 && (
-        <div className="relative bg-muted/50 rounded w-full h-[40px]">
+      {/* Narration track */}
+      {narrationClips.length > 0 && (
+        <div
+          ref={timelineRef}
+          className="relative bg-muted/50 rounded w-full h-[40px]"
+          onMouseMove={handleClipDrag}
+          onMouseUp={handleClipDragEnd}
+          onMouseLeave={handleClipDragEnd}
+        >
           <div className="absolute inset-0 flex items-center px-2">
             <span className="text-xs text-muted-foreground font-medium">Narration</span>
           </div>
-          {narration.map((segment) => {
-            const leftPercent = (segment.startTime / totalDuration) * 100;
-            const widthPercent = ((segment.endTime - segment.startTime) / totalDuration) * 100;
-            const isSelected = selectedBlockId === segment.id;
+          {narrationClips.map((clip) => {
+            const leftPercent = (clip.startTime / totalDuration) * 100;
+            const widthPercent = (clip.duration / totalDuration) * 100;
+            const isSelected = selectedClipId === clip.sourceId;
+            const isDragging = draggingClipId === clip.id;
 
             return (
               <div
-                key={segment.id}
-                className={`absolute top-1 bottom-1 bg-purple-500/70 rounded border border-purple-600 cursor-pointer ${isSelected ? 'ring-2 ring-green-500 z-20' : 'z-10'}`}
+                key={clip.id}
+                className={`absolute top-1 bottom-1 bg-purple-500/70 border-purple-600 rounded border ${isDragging ? 'cursor-grabbing opacity-80' : 'cursor-grab'} ${isSelected ? 'ring-2 ring-green-500 z-20' : 'z-10'}`}
                 style={{
                   left: `${leftPercent}%`,
                   width: `${widthPercent}%`,
                 }}
-                title={segment.text}
+                title={clip.text}
+                onMouseDown={(e) => handleClipDragStart(e, clip)}
                 onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectBlock?.(segment.id);
+                  if (!isDragging) {
+                    e.stopPropagation();
+                    onSelectClip?.(clip.sourceId);
+                  }
                 }}
               >
-                <div className="px-1 text-xs text-white/90 truncate">
-                  {segment.text}
+                <div className="px-1 text-xs text-white/90 truncate pointer-events-none">
+                  {clip.text}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Music track */}
+      {musicClips.length > 0 && (
+        <div
+          className="relative bg-muted/50 rounded w-full h-[40px]"
+          onMouseMove={handleClipDrag}
+          onMouseUp={handleClipDragEnd}
+          onMouseLeave={handleClipDragEnd}
+        >
+          <div className="absolute inset-0 flex items-center px-2">
+            <span className="text-xs text-muted-foreground font-medium">Music</span>
+          </div>
+          {musicClips.map((clip) => {
+            const leftPercent = (clip.startTime / totalDuration) * 100;
+            const widthPercent = (clip.duration / totalDuration) * 100;
+            const isSelected = selectedClipId === clip.sourceId;
+            const isDragging = draggingClipId === clip.id;
+
+            return (
+              <div
+                key={clip.id}
+                className={`absolute top-1 bottom-1 bg-blue-500/70 border-blue-600 rounded border ${isDragging ? 'cursor-grabbing opacity-80' : 'cursor-grab'} ${isSelected ? 'ring-2 ring-green-500 z-20' : 'z-10'}`}
+                style={{
+                  left: `${leftPercent}%`,
+                  width: `${widthPercent}%`,
+                }}
+                title="Background Music"
+                onMouseDown={(e) => handleClipDragStart(e, clip)}
+                onClick={(e) => {
+                  if (!isDragging) {
+                    e.stopPropagation();
+                    onSelectClip?.(clip.sourceId);
+                  }
+                }}
+              >
+                <div className="px-1 text-xs text-white/90 truncate pointer-events-none">
+                  Background Music
                 </div>
               </div>
             );
