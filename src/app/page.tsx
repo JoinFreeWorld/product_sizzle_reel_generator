@@ -23,6 +23,7 @@ import { analyzeVideo, extractClip } from "@/services/videoService";
 import { generateStillImage, generateVideo } from "@/services/mediaService";
 import { generateNarration, generateMusic } from "@/services/audioService";
 import { stitchVideoClips, assembleNarrationTrack, duckMusicTrack, assembleFinalVideo } from "@/services/exportService";
+import { compressVideoIfNeeded } from "@/utils/videoCompression";
 
 export default function Home() {
   const { showError } = useErrorToast();
@@ -124,51 +125,30 @@ export default function Home() {
       reader.onload = async (e) => {
         const result = e.target?.result as string;
 
-        // Check if compression is needed (over 10MB)
-        const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-        let compressedData = result;
-
-        if (file.size > maxSize) {
-          // Compress for analysis
-          setCompressingVideos(prev => ({ ...prev, [videoId]: true }));
-          try {
-            const response = await fetch("/api/video/compress", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                videoData: result,
-                targetSizeMB: 9, // Stay under 10MB limit
-              }),
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || "Failed to compress video");
-            }
-
-            const compressionResult = await response.json();
-            compressedData = compressionResult.compressedVideo;
-
-            console.log(`${file.name} compressed: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressionResult.compressedSize / 1024 / 1024).toFixed(2)}MB (${(compressionResult.compressionRatio * 100).toFixed(0)}%)`);
-          } catch (err) {
-            showError(`Failed to compress ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
-            setCompressingVideos(prev => {
-              const updated = { ...prev };
-              delete updated[videoId];
-              return updated;
-            });
-            // Decrement uploading count on failure
-            setUploadingVideosCount(prev => Math.max(0, prev - 1));
-            return;
-          } finally {
-            setCompressingVideos(prev => {
-              const updated = { ...prev };
-              delete updated[videoId];
-              return updated;
-            });
-          }
+        // Compress video if needed (over 10MB)
+        setCompressingVideos(prev => ({ ...prev, [videoId]: true }));
+        let compressedData: string;
+        try {
+          compressedData = await compressVideoIfNeeded(
+            result,
+            file.name,
+            file.size
+          );
+        } catch (err) {
+          showError(`Failed to compress ${file.name}: ${err instanceof Error ? err.message : String(err)}`);
+          setCompressingVideos(prev => {
+            const updated = { ...prev };
+            delete updated[videoId];
+            return updated;
+          });
+          setUploadingVideosCount(prev => Math.max(0, prev - 1));
+          return;
+        } finally {
+          setCompressingVideos(prev => {
+            const updated = { ...prev };
+            delete updated[videoId];
+            return updated;
+          });
         }
 
         // Add video to array
