@@ -9,7 +9,7 @@ An AI-assisted sizzle reel generator for software/app product features. Transfor
 - **AI Services**:
   - Google Gemini (video analysis, storyboard, image generation, video generation)
   - ElevenLabs (voiceover narration)
-- **Video Processing**: FFmpeg (planned)
+- **Video Processing**: FFmpeg 
 
 ## Getting Started
 
@@ -33,7 +33,9 @@ An AI-assisted sizzle reel generator for software/app product features. Transfor
 
    ```bash
    npm install
+   brew install ffmpeg
    ```
+
 
 3. Set up environment variables:
 
